@@ -84,7 +84,8 @@ cmd_new() {
   [ "$free" -ge "$min" ] || die "磁盘可用 ${free} GiB < ${min} GiB，先清理已合入 lane 的构建产物"
 
   mkdir -p "$root"
-  git -C "$main" worktree add -b "$branch" "$wt" "$base" >&2
+  # stdout 只留路径；调用方常写 WT=$(lane.sh new … 2>&1)，所以成功时 stderr 也不能有输出
+  git -C "$main" worktree add --quiet -b "$branch" "$wt" "$base"
   # 记下切出这条线的集成分支和切出点，看板据此认批、算提交数（文件在 lane 自己的 git 目录，不入库）
   printf '%s\n%s\n' "$base" "$(git -C "$wt" rev-parse HEAD)" \
     > "$(git -C "$wt" rev-parse --path-format=absolute --git-dir)/lane-base"
@@ -97,7 +98,7 @@ cmd_new() {
     grep -qxF "$f" "$exclude" 2>/dev/null || printf '%s\n' "$f" >> "$exclude"
   done
 
-  cmd_check "$wt" >&2
+  cmd_check "$wt" >/dev/null
   printf '%s\n' "$wt"
 }
 

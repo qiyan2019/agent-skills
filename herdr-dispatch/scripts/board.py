@@ -83,7 +83,7 @@ def resolve_integ(target):
     checkout = (ws["workspace"].get("worktree") or {}).get("checkout_path")
     if checkout:
         return real(checkout), target
-    # herdr 有时不带 worktree 字段（herdr 0.9.5 实测），改从批空间里的 pane cwd 反查
+    # herdr 有时不带 worktree 字段，改从批空间里的 pane cwd 反查
     panes = (herdr_json("pane", "list", "--workspace", target) or {}).get("panes", [])
     for p in panes:
         cwd = p.get("cwd") or ""
@@ -164,7 +164,7 @@ def derive_stage(wt, agent_status, has_agent):
         return "受阻"
     if "待裁定" in status:
         # 裁定写回 TASK.md 并发了 prompt，执行者在跑：轮到执行者。
-        # 只看 TASK.md 修改时间不够：指挥改任务书别处也会变新（2026-11-17 实测）。
+        # 只看 TASK.md 修改时间不够：指挥改任务书别处也会变新。
         return "执行中" if agent_status == "working" else "待裁定"
     if "完成" in status:
         return "待验收"
@@ -382,8 +382,8 @@ class Resized(Exception):
     """终端尺寸变了：打断 sleep 立刻重画。"""
 
 
-# SIGWINCH 只在 sleep 时用异常打断；采集数据（git / herdr 子进程）期间抛异常会把整个看板打崩
-# （2026-11-17 手机附着时实测），所以那时只记下标记，画完这一轮立刻重画。
+# SIGWINCH 只在 sleep 时用异常打断；采集数据（git / herdr 子进程）期间抛异常会把整个看板打崩，
+# 所以那时只记下标记，画完这一轮立刻重画。
 RESIZE = {"sleeping": False, "pending": False}
 
 
@@ -405,7 +405,7 @@ def watch_loop(target, interval):
     """常驻模式：备用屏 + 关自动换行，尺寸一变立刻按新宽度重画。
 
     手机客户端附着时 pane 会从桌面的宽度缩到 44～47 列：主屏上的旧画面会被终端重新折行，
-    而 10 秒一轮又来不及重画（2026-11-17 用户截图）。备用屏不进滚动区、关掉自动换行后超宽行只会被截断。
+    而 10 秒一轮又来不及重画。备用屏不进滚动区、关掉自动换行后超宽行只会被截断。
     """
     topic = None
     out = sys.stdout
@@ -523,7 +523,7 @@ def ancestors():
 def cmd_busy(argv):
     """列出工作目录在 <路径> 下、正在干活的进程；有则退出码 1。
 
-    close-space 前调用：2026-11-17 集成 worktree 里正有发布脚本在跑，只按 tab 数判断会把发布打断。
+    close-space 前调用：只按 tab 数判断，会打断集成 worktree 里正在跑的发布或构建。
     """
     if len(argv) != 1:
         sys.exit("board: busy 需要一个路径")

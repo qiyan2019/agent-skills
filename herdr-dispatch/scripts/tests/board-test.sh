@@ -44,6 +44,9 @@ export LANE_MIN_FREE_GB=0
 cd "$REPO"
 WT=$("$L" new demo-t1 --base feat/demo 2>/dev/null)
 OTHER=$("$L" new other-x --base master 2>/dev/null)   # 别的批，不应出现在看板
+# 调用方把 stderr 并进来也只能拿到路径
+MIXED=$("$L" new mixed-x --base master 2>&1)
+[ "$MIXED" = "$(dirname "$(dirname "$WT")")/mixed-x/$(basename "$WT")" ] && ok "new 的 stdout+stderr 合并后只有路径" || bad "new 合并输出后不是纯路径：$(printf '%s' "$MIXED" | head -c 200)"
 
 board_json() { "$L" board w9 --json; }
 field() { board_json | python3 -I -c "import json,sys; d=json.load(sys.stdin); l=[x for x in d['lanes'] if x['lane']=='$1']; print(l[0]['$2'] if l else 'MISSING')"; }
