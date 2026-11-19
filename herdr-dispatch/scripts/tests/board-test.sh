@@ -84,6 +84,28 @@ echo "[{\"name\":\"demo-t1-codex\",\"agent\":\"codex\",\"agent_status\":\"blocke
 expect demo-t1 stage 受阻 "agent blocked → 受阻"
 echo '[]' > "$TMP/agents.json"
 
+# wait：阻塞到出现新的轮到指挥才返回；启动时已在轮到指挥的线不算新变化
+WAIT_OUT="$TMP/wait.out"
+set +e; "$L" wait w9 --interval 0.2 --timeout 1 > "$WAIT_OUT" 2>&1; rc=$?; set -e
+[ "$rc" -eq 124 ] && ok "wait 启动时已待验收不触发，超时退出码 124" || bad "wait 超时退出码：$rc $(head -c 200 "$WAIT_OUT")"
+
+mv "$WT/REPORT.md" "$TMP/REPORT.bak"
+echo "[{\"name\":\"demo-t1-codex\",\"agent\":\"codex\",\"agent_status\":\"working\",\"pane_id\":\"w9:p2\",\"cwd\":\"$WT\"}]" > "$TMP/agents.json"
+"$L" wait w9 --interval 0.2 --timeout 10 > "$WAIT_OUT" 2>&1 & wait_pid=$!
+python3 -I -c 'import time; time.sleep(0.6)'
+echo "[{\"name\":\"demo-t1-codex\",\"agent\":\"codex\",\"agent_status\":\"idle\",\"pane_id\":\"w9:p2\",\"cwd\":\"$WT\"}]" > "$TMP/agents.json"
+set +e; wait "$wait_pid"; rc=$?; set -e
+[ "$rc" -eq 0 ] && grep -q "新轮到指挥：demo-t1 停下（无 REPORT）" "$WAIT_OUT" \
+  && ok "wait：agent 停下没写 REPORT 时返回" || bad "wait 停下无报告：$rc $(head -c 300 "$WAIT_OUT")"
+
+"$L" wait w9 --interval 0.2 --timeout 10 > "$WAIT_OUT" 2>&1 & wait_pid=$!
+python3 -I -c 'import time; time.sleep(0.6)'
+mv "$TMP/REPORT.bak" "$WT/REPORT.md"; at "$WT/REPORT.md" 7000
+set +e; wait "$wait_pid"; rc=$?; set -e
+[ "$rc" -eq 0 ] && grep -q "新轮到指挥：demo-t1 待验收" "$WAIT_OUT" && grep -q "轮到指挥：" "$WAIT_OUT" \
+  && ok "wait：写出 REPORT 完成后返回并附看板" || bad "wait 待验收：$rc $(head -c 300 "$WAIT_OUT")"
+echo '[]' > "$TMP/agents.json"
+
 git -C "$WT" commit -q --allow-empty -m "fix: 一个提交"
 expect demo-t1 commits 1 "提交数按切出点计"
 

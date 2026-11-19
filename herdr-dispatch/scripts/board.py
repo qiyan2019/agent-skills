@@ -3,6 +3,10 @@
 
 用法：
   board.py show <workspace ID | 集成 worktree 路径> [--json] [--watch 秒]
+  board.py wait <workspace ID | 集成 worktree 路径> [--timeout 秒] [--interval 秒]
+      阻塞到出现「新的」轮到指挥（待裁定 / 受阻 / 待验收，或 agent 停下却没写 REPORT）才返回，
+      输出变化的线与当前看板，退出码 0；超时退出码 124。启动时已在轮到指挥的线不算新变化。
+      指挥等待执行者只用这一条后台命令，不用 agent 自带定时器或 sleep 轮询。
   board.py busy <路径>
       列出工作目录在该路径下、正在干活的进程（空闲 shell 与看板除外），有则退出码 1。
   board.py record <lane worktree> --space <WS> [--merged-into REF]
@@ -467,6 +471,65 @@ def cmd_show(argv):
         time.sleep(watch)
 
 
+STOPPED = "停下（无 REPORT）"  # agent 不在跑却没写 REPORT：prompt 被吞、在对话里提问或异常退出
+
+
+def wait_key(lane):
+    """这条线需要指挥处理的原因；不需要返回 None。"""
+    if lane["attention"]:
+        return lane["stage"]
+    if lane["agent"] and lane["agent_status"] in ("idle", "done") and lane["report_status"] is None:
+        return STOPPED
+    return None
+
+
+def cmd_wait(argv):
+    target, timeout, interval = None, 0.0, 15.0
+    it = iter(argv)
+    for a in it:
+        if a == "--timeout":
+            timeout = float(next(it, "0"))
+        elif a == "--interval":
+            interval = float(next(it, "15"))
+        elif target is None:
+            target = a
+        else:
+            sys.exit(f"board: 多余参数：{a}")
+    if not target:
+        sys.exit("board: wait 需要 workspace ID 或集成 worktree 路径")
+    start = time.time()
+    data = collect(target)
+    # 启动时的状态视为已报告过；同一原因只报一次，原因消失后再出现会重新报
+    reported = {l["lane"]: wait_key(l) for l in data["lanes"]}
+    streak = {}
+    while True:
+        if not data["lanes"]:
+            print("本批没有进行中的线")
+            return
+        if timeout and time.time() - start >= timeout:
+            print(f"超时 {int(timeout)} 秒：没有新的轮到指挥，可直接再次 wait")
+            sys.exit(124)
+        time.sleep(interval)
+        data = collect(target)
+        fresh = []
+        for l in data["lanes"]:
+            key = wait_key(l)
+            prev_key, n = streak.get(l["lane"], (None, 0))
+            streak[l["lane"]] = (key, n + 1 if prev_key == key else 1)
+            if key is None:
+                reported[l["lane"]] = None
+                continue
+            # codex 等的状态会在 working / idle 间抖动：「停下」要连续两次采样一致才算
+            need = 2 if key == STOPPED else 1
+            if reported.get(l["lane"]) != key and streak[l["lane"]][1] >= need:
+                reported[l["lane"]] = key
+                fresh.append(f"{l['lane']} {key}")
+        if fresh:
+            print("新轮到指挥：" + "；".join(fresh))
+            print(render(data, False, shutil.get_terminal_size().columns))
+            return
+
+
 def cmd_record(argv):
     wt, space, merged = None, None, None
     it = iter(argv)
@@ -545,7 +608,7 @@ def cmd_busy(argv):
 
 
 def main():
-    cmds = {"show": cmd_show, "record": cmd_record, "busy": cmd_busy}
+    cmds = {"show": cmd_show, "wait": cmd_wait, "record": cmd_record, "busy": cmd_busy}
     if len(sys.argv) < 2 or sys.argv[1] not in cmds:
         sys.exit(__doc__)
     cmds[sys.argv[1]](sys.argv[2:])

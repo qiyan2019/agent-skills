@@ -14,6 +14,8 @@
 #       + 独立 herdr workspace。输出两行：workspace ID、worktree 路径。
 #   lane.sh board <workspace ID | 集成 worktree 路径> [--json] [--watch 秒]
 #       调度看板：本批每条线的阶段、agent 状态、提交与 REPORT 状态（scripts/board.py）。
+#   lane.sh wait <workspace ID | 集成 worktree 路径> [--timeout 秒] [--interval 秒]
+#       阻塞到本批出现新的轮到指挥（或 agent 停下没写 REPORT）才返回并输出看板；超时退出码 124。
 #   lane.sh close-space <workspace ID> [--merged-into REF] [--force]
 #       关闭批空间：workspace 里除根 tab 外还有 tab（子任务没收尾）、或集成 worktree 里还有进程在干活时拒绝；
 #       经 herdr worktree remove 删 checkout 并关 workspace；集成分支已并入 REF 时删分支。
@@ -321,6 +323,7 @@ case "${1:-}" in
   close-space) shift; cmd_close_space "$@" ;;
   check) shift; cmd_check "$@" ;;
   board) shift; exec python3 -I "$SCRIPT_DIR/board.py" show "$@" ;;
+  wait) shift; exec python3 -I "$SCRIPT_DIR/board.py" wait "$@" ;;
   finish) shift; cmd_finish "$@" ;;
-  *) die "用法：lane.sh new <lane> [--base REF] [--branch NAME] [--repo PATH] | lane.sh check <worktree> | lane.sh finish <worktree> [--agent NAME]... [--space WS] [--merged-into REF] [--force] | lane.sh board <WS|集成 worktree> [--json] [--watch 秒] | lane.sh space <主题> [--base REF] | lane.sh close-space <workspace ID> [--merged-into REF] [--force]" ;;
+  *) die "用法：lane.sh new <lane> [--base REF] [--branch NAME] [--repo PATH] | lane.sh check <worktree> | lane.sh finish <worktree> [--agent NAME]... [--space WS] [--merged-into REF] [--force] | lane.sh board <WS|集成 worktree> [--json] [--watch 秒] | lane.sh wait <WS|集成 worktree> [--timeout 秒] | lane.sh space <主题> [--base REF] | lane.sh close-space <workspace ID> [--merged-into REF] [--force]" ;;
 esac

@@ -84,7 +84,8 @@ herdr pane rename <pane_id> "<主题> T1 · <线标题>"
 
 ### 4. 监控
 
-- 用 `herdr agent wait <名> --timeout <ms>` 等待（尽量后台跑，不短间隔轮询）。
+- **等待只用一条命令**：`$L wait "$SPACE" --timeout 1800`，放后台跑（不支持后台的 agent 前台阻塞即可）。它阻塞到本批出现新的「轮到指挥」（待裁定 / 受阻 / 待验收，或 agent 停下却没写 REPORT）才返回，输出变化的线和看板；退出码 124 是超时无变化，直接再挂一次。处理完返回的线再挂下一次。
+- **禁止自己计时轮询**：不用 agent 自带的定时器 / 计划任务 / 唤醒（agy 的 Schedule、Claude 的 ScheduleWakeup 与 /loop、cron 等），不写 `sleep` 循环，也不在 wait 挂着时反复 `agent get` / `pane read` 查进度。`herdr agent wait` 只用于盯单个 agent 的短时状态（如发 prompt 后等它进入 working）。
 - `done` / `idle` 不等于完成。以 `REPORT.md` 已写出且分支上有提交为准：`git -C "$WT" log --oneline <base>..HEAD`。
 - `blocked`：`herdr agent read` 看清是什么。写集内的工具审批可批；越权、生产操作、需要用户取舍的问用户。
 - 读不全回复时，让它写进 `REPORT.md`。
