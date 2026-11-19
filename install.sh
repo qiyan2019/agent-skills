@@ -6,18 +6,14 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 HUB="$HOME/.agents/skills"
 
-# 各 agent 的用户级技能目录；只装到已存在的目录（未安装的 agent 自动跳过）
+# 不扫描 ~/.agents/skills 的 agent 才需要额外软链；只装到已存在的目录
+# Codex / Devin / Gemini CLI / OpenCode / Grok / cursor-agent 原生扫描 ~/.agents/skills，
+# 不要再加进来（Gemini 会报 Skill conflict），实测记录见 README
 AGENT_DIRS=(
   "$HOME/.claude/skills"                  # Claude Code
-  "$HOME/.codex/skills"                   # Codex
-  "$HOME/.config/devin/skills"            # Devin CLI
   "$HOME/.gemini/antigravity-cli/skills"  # agy（Antigravity CLI）
   "$HOME/.gemini/antigravity/skills"      # Antigravity IDE
-  "$HOME/.gemini/skills"                  # Gemini CLI
-  "$HOME/.cursor/skills"                  # Cursor / cursor-agent
-  "$HOME/.grok/skills"                    # Grok CLI
   "$HOME/.factory/skills"                 # Factory droid
-  "$HOME/.config/opencode/skills"         # OpenCode
 )
 
 # link <源> <链接路径>：建立或校正软链
